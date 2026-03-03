@@ -2,14 +2,20 @@ import SwiftUI
 import SwiftData
 
 struct CoffeeDetailView: View {
-    // Kita ganti nama String menjadi objek Coffee agar bisa akses .isFavorite
+    // Akses ke database SwiftData
+    @Environment(\.modelContext) private var modelContext
+    
+    // Objek kopi yang sedang dilihat
     @Bindable var coffee: Coffee
+    
+    // State untuk UI
     @State private var selectedSize = "M"
+    @State private var showSuccessAlert = false // Feedback saat berhasil tambah ke cart
     @Environment(\.dismiss) var dismiss
 
     var body: some View {
         VStack(spacing: 0) {
-            // Hero Image Section
+            // --- Hero Image Section ---
             ZStack(alignment: .top) {
                 Rectangle()
                     .fill(Color.coffeeLight.opacity(0.3))
@@ -33,7 +39,7 @@ struct CoffeeDetailView: View {
                     
                     Spacer()
                     
-                    // TOMBOL FAVORIT
+                    // Tombol Favorit
                     Button(action: {
                         coffee.isFavorite.toggle()
                     }) {
@@ -48,7 +54,7 @@ struct CoffeeDetailView: View {
                 .padding(.top, 60)
             }
             
-            // Content Section
+            // --- Content Section ---
             VStack(alignment: .leading, spacing: 20) {
                 HStack {
                     VStack(alignment: .leading) {
@@ -66,7 +72,7 @@ struct CoffeeDetailView: View {
                 
                 Text("Description")
                     .font(.headline)
-                Text(coffee.details) // Menggunakan data dari model
+                Text(coffee.details)
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
                 
@@ -77,16 +83,26 @@ struct CoffeeDetailView: View {
                 
                 Spacer()
                 
-                // Add to Cart Button
-                Button(action: { /* Logic Tambah ke Keranjang */ }) {
-                    Text("Add to Cart")
-                        .font(.headline)
-                        .foregroundColor(.white)
-                        .frame(maxWidth: .infinity)
-                        .frame(height: 60)
-                        .background(Color.coffeeDark)
-                        .cornerRadius(20)
+                // --- Logic & Button Tambah ke Keranjang ---
+                Button(action: {
+                    addToCart()
+                }) {
+                    HStack {
+                        if showSuccessAlert {
+                            Image(systemName: "checkmark.circle.fill")
+                            Text("Added to Cart!")
+                        } else {
+                            Text("Add to Cart")
+                        }
+                    }
+                    .font(.headline)
+                    .foregroundColor(.white)
+                    .frame(maxWidth: .infinity)
+                    .frame(height: 60)
+                    .background(showSuccessAlert ? Color.green : Color.coffeeDark)
+                    .cornerRadius(20)
                 }
+                .disabled(showSuccessAlert) // Mencegah klik ganda saat animasi
             }
             .padding(30)
             .background(.white)
@@ -96,9 +112,53 @@ struct CoffeeDetailView: View {
         .ignoresSafeArea()
         .navigationBarHidden(true)
     }
+    
+    // FUNGSI: Menambah data ke database CartItem
+    private func addToCart() {
+        // 1. Ambil nilai ke variabel lokal (Penting untuk SwiftData Predicate)
+        let targetName = coffee.name
+        let targetSize = selectedSize
+        
+        // 2. Cari apakah item yang sama persis sudah ada di keranjang?
+        let descriptor = FetchDescriptor<CartItem>(
+            predicate: #Predicate<CartItem> { item in
+                item.name == targetName && item.size == targetSize
+            }
+        )
+        
+        do {
+            let existingItems = try modelContext.fetch(descriptor)
+            
+            if let existingItem = existingItems.first {
+                // Jika sudah ada, cukup tambah jumlahnya (Sinkronisasi Stok)
+                existingItem.quantity += 1
+            } else {
+                // Jika belum ada, buat item baru
+                let newItem = CartItem(
+                    name: coffee.name,
+                    price: coffee.price,
+                    size: selectedSize,
+                    quantity: 1,
+                    image: "cup.and.saucer.fill"
+                )
+                modelContext.insert(newItem)
+            }
+            
+            // 3. Simpan perubahan secara permanen
+            try modelContext.save()
+            
+            // Efek visual sukses
+            withAnimation(.spring()) {
+                showSuccessAlert = true
+            }
+            
+        } catch {
+            print("Gagal memproses keranjang: \(error.localizedDescription)")
+        }
+    }
 }
 
-// Helper tetap sama seperti kodemu sebelumnya
+// --- Helper Extensions ---
 extension View {
     func cornerRadius(_ radius: CGFloat, corners: UIRectCorner) -> some View {
         clipShape(RoundedCorner(radius: radius, corners: corners))

@@ -2,13 +2,16 @@ import SwiftUI
 import SwiftData
 
 struct ContentView: View {
-    // Mengambil data kopi dari database SwiftData secara real-time
+    // 1. Mengambil data kopi dan item keranjang secara real-time
     @Query(sort: \Coffee.name) var coffees: [Coffee]
+    @Query var cartItems: [CartItem] // Untuk menghitung badge di ikon keranjang
+    
     @Environment(\.modelContext) private var modelContext
     
     @State private var selectedCategory = "All"
     let categories = ["All", "Espresso", "Milk Based", "Manual Brew"]
     
+    // 2. Logika untuk menyaring kopi berdasarkan kategori yang dipilih
     var filteredCoffees: [Coffee] {
         if selectedCategory == "All" {
             return coffees
@@ -21,7 +24,8 @@ struct ContentView: View {
         NavigationStack {
             ScrollView {
                 VStack(alignment: .leading, spacing: 20) {
-                    // Header Section
+                    
+                    // --- Header Section ---
                     VStack(alignment: .leading) {
                         Text("Selamat pagi, Derry")
                             .font(.subheadline)
@@ -31,19 +35,21 @@ struct ContentView: View {
                     }
                     .padding(.horizontal)
                     
-                    // Category Selection
+                    // --- Category Selection ---
                     ScrollView(.horizontal, showsIndicators: false) {
                         HStack(spacing: 12) {
                             ForEach(categories, id: \.self) { category in
                                 CategoryButton(title: category, isSelected: selectedCategory == category) {
-                                    selectedCategory = category
+                                    withAnimation(.spring()) {
+                                        selectedCategory = category
+                                    }
                                 }
                             }
                         }
                         .padding(.horizontal)
                     }
                     
-                    // Hero Promo Section
+                    // --- Hero Promo Section ---
                     ZStack(alignment: .bottomLeading) {
                         RoundedRectangle(cornerRadius: 25)
                             .fill(LinearGradient(colors: [.brown, .black.opacity(0.8)], startPoint: .topLeading, endPoint: .bottomTrailing))
@@ -64,27 +70,31 @@ struct ContentView: View {
                     }
                     .padding(.horizontal)
                     
-                    // Coffee Grid Section
+                    // --- Coffee Grid Section ---
                     Text("Pilihan Untukmu")
                         .font(.headline)
                         .padding(.horizontal)
                     
                     if coffees.isEmpty {
-                        // Tampilan jika database masih kosong
-                        ContentUnavailableView("Belum ada menu", systemImage: "cup.and.saucer", description: Text("Gunakan tombol + untuk menambah menu kopi baru."))
+                        ContentUnavailableView(
+                            "Belum ada menu",
+                            systemImage: "cup.and.saucer",
+                            description: Text("Gunakan tombol + untuk menambah menu kopi baru.")
+                        )
                     } else {
                         LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 15) {
-                            // GANTI 'coffees' menjadi 'filteredCoffees'
                             ForEach(filteredCoffees) { coffeeItem in
                                 NavigationLink(destination: CoffeeDetailView(coffee: coffeeItem)) {
                                     CoffeeCard(coffee: coffeeItem)
                                 }
                                 .buttonStyle(PlainButtonStyle())
-                                // TAMBAHKAN INI: Menu klik kanan / tahan lama untuk hapus
+                                // Fitur Hapus dengan tekan lama (Context Menu)
                                 .contextMenu {
                                     Button(role: .destructive) {
-                                        modelContext.delete(coffeeItem)
-                                        try? modelContext.save()
+                                        withAnimation {
+                                            modelContext.delete(coffeeItem)
+                                            try? modelContext.save()
+                                        }
                                     } label: {
                                         Label("Hapus Menu", systemImage: "trash")
                                     }
@@ -99,35 +109,55 @@ struct ContentView: View {
             .navigationTitle("BorneoBrew")
             .background(Color(.systemGroupedBackground))
             .toolbar {
-                Button(action: {
-                    // Bungkus dengan animasi agar UI sadar ada perubahan data
-                    withAnimation(.spring()) {
-                        addSampleData()
+                // Toolbar Item Kanan: Tombol Keranjang & Tambah Data
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    HStack(spacing: 15) {
+                        // Navigasi ke Halaman Keranjang
+                        NavigationLink(destination: CartView()) {
+                            ZStack(alignment: .topTrailing) {
+                                Image(systemName: "cart")
+                                    .font(.title3)
+                                
+                                // Badge jumlah item di keranjang
+                                if !cartItems.isEmpty {
+                                    Text("\(cartItems.count)")
+                                        .font(.system(size: 10, weight: .bold))
+                                        .foregroundColor(.white)
+                                        .frame(width: 16, height: 16)
+                                        .background(Color.red)
+                                        .clipShape(Circle())
+                                        .offset(x: 8, y: -8)
+                                }
+                            }
+                        }
+                        
+                        // Tombol Tambah Data Dummy
+                        Button(action: {
+                            withAnimation(.spring()) {
+                                addSampleData()
+                            }
+                        }) {
+                            Image(systemName: "plus")
+                                .font(.title3)
+                                .bold()
+                        }
                     }
-                }) {
-                    Image(systemName: "plus")
-                        .font(.title3)
-                        .bold()
                 }
             }
         }
     }
     
-    // Fungsi untuk mengisi data awal agar simulator tidak kosong
     private func addSampleData() {
-        // 1. Buat data dummy yang lebih lengkap
         let samples = [
             Coffee(name: "Espresso", category: "Espresso", price: 25000, details: "Ekstrak kopi murni yang kuat dan kental khas Pontianak.", roastLevel: 4, image: "cup"),
             Coffee(name: "Latte Borneo", category: "Milk Based", price: 35000, details: "Espresso dengan susu lembut dan sentuhan gula aren lokal.", roastLevel: 2, image: "cup"),
             Coffee(name: "Kopi Tubruk", category: "Manual Brew", price: 18000, details: "Kopi hitam klasik dengan aroma yang sangat tajam.", roastLevel: 5, image: "cup")
         ]
         
-        // 2. Masukkan ke database
         for item in samples {
             modelContext.insert(item)
         }
         
-        // 3. PAKSA SIMPAN (Ini kuncinya agar UI langsung sadar ada data baru)
         do {
             try modelContext.save()
             print("Data berhasil disimpan!")
@@ -135,65 +165,65 @@ struct ContentView: View {
             print("Gagal menyimpan: \(error.localizedDescription)")
         }
     }
+}
+
+// MARK: - Komponen Pendukung Tetap Sama
+struct CategoryButton: View {
+    let title: String
+    let isSelected: Bool
+    let action: () -> Void
     
-    // MARK: - Komponen Pendukung
-    struct CategoryButton: View {
-        let title: String
-        let isSelected: Bool
-        let action: () -> Void
-        
-        var body: some View {
-            Button(action: action) {
-                Text(title)
-                    .fontWeight(.medium)
-                    .padding(.horizontal, 20)
-                    .padding(.vertical, 10)
-                    .background(isSelected ? Color.brown : Color.white)
-                    .foregroundColor(isSelected ? .white : .brown)
-                    .clipShape(Capsule())
-                    .shadow(color: .black.opacity(0.05), radius: 5)
-            }
+    var body: some View {
+        Button(action: action) {
+            Text(title)
+                .fontWeight(.medium)
+                .padding(.horizontal, 20)
+                .padding(.vertical, 10)
+                .background(isSelected ? Color.brown : Color.white)
+                .foregroundColor(isSelected ? .white : .brown)
+                .clipShape(Capsule())
+                .shadow(color: .black.opacity(0.05), radius: 5)
         }
     }
+}
+
+struct CoffeeCard: View {
+    let coffee: Coffee
     
-    struct CoffeeCard: View {
-        let coffee: Coffee
-        
-        var body: some View {
-            VStack(alignment: .leading) {
-                ZStack(alignment: .topTrailing) {
-                    Rectangle()
-                        .fill(Color.brown.opacity(0.1))
-                        .aspectRatio(1, contentMode: .fit)
-                        .overlay(
-                            Image(systemName: "cup.and.saucer.fill")
-                                .font(.largeTitle)
-                                .foregroundColor(.brown)
-                        )
-                        .cornerRadius(20)
-                    
-                    if coffee.isFavorite {
-                        Image(systemName: "heart.fill")
-                            .foregroundColor(.red)
-                            .padding(10)
-                            .background(.white.opacity(0.8))
-                            .clipShape(Circle())
-                            .padding(8)
-                    }
+    var body: some View {
+        VStack(alignment: .leading) {
+            ZStack(alignment: .topTrailing) {
+                Rectangle()
+                    .fill(Color.brown.opacity(0.1))
+                    .aspectRatio(1, contentMode: .fit)
+                    .overlay(
+                        Image(systemName: "cup.and.saucer.fill")
+                            .font(.largeTitle)
+                            .foregroundColor(.brown)
+                    )
+                    .cornerRadius(20)
+                
+                if coffee.isFavorite {
+                    Image(systemName: "heart.fill")
+                        .foregroundColor(.red)
+                        .padding(10)
+                        .background(.white.opacity(0.8))
+                        .clipShape(Circle())
+                        .padding(8)
                 }
-                
-                Text(coffee.name)
-                    .font(.headline)
-                    .foregroundColor(.primary)
-                
-                Text("Rp \(coffee.price, specifier: "%.0f")")
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
             }
-            .padding(12)
-            .background(.white)
-            .cornerRadius(25)
-            .shadow(color: .black.opacity(0.03), radius: 10)
+            
+            Text(coffee.name)
+                .font(.headline)
+                .foregroundColor(.primary)
+            
+            Text("Rp \(coffee.price, specifier: "%.0f")")
+                .font(.subheadline)
+                .foregroundStyle(.secondary)
         }
+        .padding(12)
+        .background(.white)
+        .cornerRadius(25)
+        .shadow(color: .black.opacity(0.03), radius: 10)
     }
 }

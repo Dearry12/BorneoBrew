@@ -28,7 +28,7 @@ struct BorneoBrewApp: App {
                 ContentView()
             }
             // Pastikan baris ini ada!
-            .modelContainer(for: Coffee.self)
+            .modelContainer(for: [Coffee.self, CartItem.self])
         }
     }
 
