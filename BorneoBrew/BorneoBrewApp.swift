@@ -24,9 +24,11 @@ struct BorneoBrewApp: App {
     }()
 
     var body: some Scene {
-        WindowGroup {
-            ContentView()
+            WindowGroup {
+                ContentView()
+            }
+            // Pastikan baris ini ada!
+            .modelContainer(for: Coffee.self)
         }
-        .modelContainer(sharedModelContainer)
     }
-}
+

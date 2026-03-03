@@ -1,14 +1,16 @@
 import SwiftUI
+import SwiftData
 
 struct CoffeeDetailView: View {
-    let coffeeName: String
+    // Kita ganti nama String menjadi objek Coffee agar bisa akses .isFavorite
+    @Bindable var coffee: Coffee
     @State private var selectedSize = "M"
     @Environment(\.dismiss) var dismiss
 
     var body: some View {
         VStack(spacing: 0) {
             // Hero Image Section
-            ZStack(alignment: .topLeading) {
+            ZStack(alignment: .top) {
                 Rectangle()
                     .fill(Color.coffeeLight.opacity(0.3))
                     .frame(height: 400)
@@ -18,15 +20,31 @@ struct CoffeeDetailView: View {
                             .foregroundStyle(Color.coffeeDark)
                     )
                 
-                // Back Button
-                Button(action: { dismiss() }) {
-                    Image(systemName: "chevron.left")
-                        .padding()
-                        .background(.ultraThinMaterial)
-                        .clipShape(Circle())
-                        .foregroundColor(.primary)
+                // Top Bar (Back & Favorite)
+                HStack {
+                    // Back Button
+                    Button(action: { dismiss() }) {
+                        Image(systemName: "chevron.left")
+                            .padding()
+                            .background(.ultraThinMaterial)
+                            .clipShape(Circle())
+                            .foregroundColor(.primary)
+                    }
+                    
+                    Spacer()
+                    
+                    // TOMBOL FAVORIT
+                    Button(action: {
+                        coffee.isFavorite.toggle()
+                    }) {
+                        Image(systemName: coffee.isFavorite ? "heart.fill" : "heart")
+                            .padding()
+                            .background(.ultraThinMaterial)
+                            .clipShape(Circle())
+                            .foregroundColor(coffee.isFavorite ? .red : .primary)
+                    }
                 }
-                .padding(.leading, 20)
+                .padding(.horizontal, 20)
                 .padding(.top, 60)
             }
             
@@ -34,21 +52,21 @@ struct CoffeeDetailView: View {
             VStack(alignment: .leading, spacing: 20) {
                 HStack {
                     VStack(alignment: .leading) {
-                        Text(coffeeName)
+                        Text(coffee.name)
                             .font(.system(size: 32, weight: .bold))
-                        Text("With Chocolate Milk")
+                        Text("Premium Selection")
                             .font(.subheadline)
                             .foregroundStyle(.secondary)
                     }
                     Spacer()
-                    Text("Rp 35k")
+                    Text("Rp \(coffee.price, specifier: "%.0f")")
                         .font(.title2).bold()
                         .foregroundColor(.coffeeDark)
                 }
                 
                 Text("Description")
                     .font(.headline)
-                Text("Kopi pilihan dari pegunungan Kalimantan yang diolah dengan teknik manual brew untuk menjaga cita rasa otentik.")
+                Text(coffee.details) // Menggunakan data dari model
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
                 
@@ -80,7 +98,7 @@ struct CoffeeDetailView: View {
     }
 }
 
-// Helper untuk Round Corner hanya di atas
+// Helper tetap sama seperti kodemu sebelumnya
 extension View {
     func cornerRadius(_ radius: CGFloat, corners: UIRectCorner) -> some View {
         clipShape(RoundedCorner(radius: radius, corners: corners))
