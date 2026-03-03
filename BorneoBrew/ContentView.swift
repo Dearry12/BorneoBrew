@@ -9,6 +9,14 @@ struct ContentView: View {
     @State private var selectedCategory = "All"
     let categories = ["All", "Espresso", "Milk Based", "Manual Brew"]
     
+    var filteredCoffees: [Coffee] {
+        if selectedCategory == "All" {
+            return coffees
+        } else {
+            return coffees.filter { $0.category == selectedCategory }
+        }
+    }
+    
     var body: some View {
         NavigationStack {
             ScrollView {
@@ -66,12 +74,21 @@ struct ContentView: View {
                         ContentUnavailableView("Belum ada menu", systemImage: "cup.and.saucer", description: Text("Gunakan tombol + untuk menambah menu kopi baru."))
                     } else {
                         LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 15) {
-                            ForEach(coffees) { coffeeItem in
-                                // Menghubungkan ke Halaman Detail dengan mengirim objek Coffee
+                            // GANTI 'coffees' menjadi 'filteredCoffees'
+                            ForEach(filteredCoffees) { coffeeItem in
                                 NavigationLink(destination: CoffeeDetailView(coffee: coffeeItem)) {
                                     CoffeeCard(coffee: coffeeItem)
                                 }
                                 .buttonStyle(PlainButtonStyle())
+                                // TAMBAHKAN INI: Menu klik kanan / tahan lama untuk hapus
+                                .contextMenu {
+                                    Button(role: .destructive) {
+                                        modelContext.delete(coffeeItem)
+                                        try? modelContext.save()
+                                    } label: {
+                                        Label("Hapus Menu", systemImage: "trash")
+                                    }
+                                }
                             }
                         }
                         .padding(.horizontal)
